@@ -1,0 +1,143 @@
+name: build-deploy-action
+run-name: Building ${{ github.repository }}. Job ${{ github.job }} started by ${{ github.actor }}
+
+on:
+  push:
+    branches:
+      - main
+      - development
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  scan-vuln-job:
+    name: Scanning for vulnerabilities and misconfigurations
+    environment: development
+    runs-on: ubuntu-22.04
+    steps:
+      - run: echo "Job (${{ github.job }}) was automatically triggered by event ${{ github.event_name }}."
+      - run: echo "${{ github.repository }}#${{ github.ref }} has been checked out to a GitHub runner on ${{ runner.os }} server"
+
+      - name: Checking out repository code
+        uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Installing library dependencies
+        run: pip install -r requirements.dev.txt
+
+      - name: Auditing 3rd-party packages
+        run: pip-audit -r requirements.txt
+
+      - name: Run Trivy filesystem vulnerability scanner in repo mode
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          exit-code: 0
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+          hide-progress: false
+          security-checks: 'vuln,config,secret'
+          vuln-type: 'os,library'
+          format: sarif
+          output: 'trivy-fs-results.sarif'
+
+      # - name: upload trivy filesystem vulnerability assessment report
+      #   uses: actions/upload-artifact@v3
+      #   if: always()
+      #   with:
+      #     name: trivy-fs-vulnerability-assessment-report
+      #     path: 'trivy-fs-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  automated-test-job:
+    name: Running unit-tests and generating coverage reports for SonarQube
+    environment: development
+    needs: scan-vuln-job
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checking out repository code
+        uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Installing library dependencies
+        env:
+          NPM_CI_TOKEN: ${{ secrets.NPM_CI_TOKEN }}
+        run: pip install -r requirements.dev.txt
+
+      - name: Linting codebase
+        run: pylint --recursive=y .
+
+      - name: Running unit-tests
+        run: coverage erase
+      - run: coverage run ./manage.py test
+
+      - name: Generating code coverage report
+        run: coverage report
+      - run: coverage html -d coverage
+
+      - name: upload coverage report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: coverage
+          path: ./coverage
+
+  build-scan-container-job:
+    name: Building container image for scanning
+    environment: development
+    needs: automated-test-job
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checking out repository code
+        uses: actions/checkout@v3
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: local/${{ github.repository_name }}
+          tags: |
+            type=raw,value=latest
+            type=raw,value=sha-${{ github.sha }}
+            type=sha,format=long
+
+      - name: Run Trivy vulnerability scanner
+        id: trivy-scan-container
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: local/${{ github.repository_name }}:sha-${{ github.sha }}
+          exit-code: 0
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          security-checks: 'vuln,config,secret'
+          severity: 'CRITICAL,HIGH'
+          format: 'sarif'
+          output: 'trivy-container-results.sarif'
+          hide-progress: false
+
+      - name: Uploading Trivy scan report (sarif)
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: trivy-container-vulnerability-assessment-report
+          path: 'trivy-container-results.sarif'
+
+      - name: Build, tag, and push Docker image to Amazon ECR
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

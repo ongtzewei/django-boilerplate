@@ -11,7 +11,24 @@ python = "^3.11"
 django = "^4.1.6"
 python-decouple = "^3.7"
 
+[tool.poetry.group.dev.dependencies]
+pip-audit = "^2.4.14"
+pylint = "^2.16.1"
+coverage = "^7.1.0"
+black = "^23.1.0"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  |app/migrations/
+  |\.txt
+  |\.lock
+  |Dockerfile
+)/
+'''
