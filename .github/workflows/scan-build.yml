@@ -1,4 +1,4 @@
-name: build-deploy-action
+name: scan-build-action
 run-name: Building ${{ github.repository }}. Job ${{ github.job }} started by ${{ github.actor }}
 
 on:
@@ -45,18 +45,12 @@ jobs:
           format: sarif
           output: 'trivy-fs-results.sarif'
 
-      # - name: upload trivy filesystem vulnerability assessment report
-      #   uses: actions/upload-artifact@v3
-      #   if: always()
-      #   with:
-      #     name: trivy-fs-vulnerability-assessment-report
-      #     path: 'trivy-fs-results.sarif'
-
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v2
+      - name: upload trivy filesystem vulnerability assessment report
+        uses: actions/upload-artifact@v3
         if: always()
         with:
-          sarif_file: 'trivy-results.sarif'
+          name: trivy-fs-vulnerability-assessment-report
+          path: 'trivy-fs-results.sarif'
 
   automated-test-job:
     name: Running unit-tests and generating coverage reports for SonarQube
