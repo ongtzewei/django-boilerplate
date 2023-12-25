@@ -7,9 +7,9 @@ readme = "README.md"
 packages = [{include = "django_boilerplate"}]
 
 [tool.poetry.dependencies]
-python = "^3.11"
-django = "^4.1.6"
+python = "^3.12"
 python-decouple = "^3.7"
+django = "^5.0"
 
 [tool.poetry.group.dev.dependencies]
 pip-audit = "^2.4.14"

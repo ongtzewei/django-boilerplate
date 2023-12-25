@@ -1,4 +1,4 @@
-FROM python:3.11.1-slim-bullseye
+FROM python:3.12.1-slim-bullseye
 
 #RUN apt-get update && apt-get install -y \
 #  binutils \
@@ -9,7 +9,7 @@ FROM python:3.11.1-slim-bullseye
 WORKDIR /django/boilerplate-app
 COPY requirements.txt /django/boilerplate-app/
 
-RUN python3.11 -m pip install --no-cache-dir --upgrade \
+RUN python3.12 -m pip install --no-cache-dir --upgrade \
     pip \
     setuptools \
     wheel

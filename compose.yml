@@ -8,9 +8,3 @@ services:
       - ./.env.docker
     ports:
       - 8080:${PORT}
-    networks:
-      - playground-network
-
-networks:
-  playground-network:
-    external: true
