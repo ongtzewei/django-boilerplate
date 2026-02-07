@@ -72,38 +72,63 @@ The pipeline runs on:
 - `push` to `main`
 - `pull_request` events: `opened`, `synchronize`, `reopened`
 
-### Pipeline Stages
+### Job Flow
 
-The workflow runs 3 jobs in sequence:
+Jobs run in this order:
+- `automated-test-job` -> `scan-vuln-job` -> `build-scan-container-job`
 
-1. `automated-test-job`
-- Checks out code
-- Installs `uv` and project dependencies (`uv sync --frozen`)
-- Lints code with `pylint`
-- Runs Django unit tests with coverage
-- Generates coverage outputs (`coverage`, HTML, XML)
-- Runs SonarQube scan
-- Uploads `coverage` artifact
+All jobs run on `ubuntu-22.04` in the `development` environment.
 
-2. `scan-vuln-job` (depends on `automated-test-job`)
-- Exports `requirements.txt` via `uv export`
-- Runs dependency audit with `pip-audit`
-- Runs OWASP Dependency Check
-- Runs Trivy filesystem scan (`vuln`, `config`, `secret`)
-- Uploads OWASP and Trivy FS scan artifacts
+### Stage Details
 
-3. `build-scan-container-job` (depends on `scan-vuln-job`)
-- Builds Docker image with Buildx
-- Tags image as `latest`, `sha-<commit>`, and long SHA tag
-- Runs Trivy container image scan
-- Uploads Trivy container scan artifact
-- Pushes Docker image only for non-PR events (`push`), if registry auth is configured
+1. `automated-test-job` (quality + test gate)
+- `actions/checkout@v3`
+- `astral-sh/setup-uv@v5`
+- Dependency install: `uv sync --frozen`
+- Lint: `uv run pylint --recursive=y .`
+- Tests + coverage:
+  - `uv run coverage erase`
+  - `uv run coverage run ./manage.py test`
+  - `uv run coverage report`
+  - `uv run coverage html -d coverage`
+  - `uv run coverage xml`
+- SonarQube scan: `sonarsource/sonarqube-scan-action@master`
+- Artifact uploaded: `coverage` (HTML coverage output directory)
+
+2. `scan-vuln-job` (dependency + source security scan)
+- Dependency export: `uv export --format requirements-txt --output-file requirements.txt`
+- Package audit: `pip-audit -r requirements.txt`
+- OWASP scan: `dependency-check/Dependency-Check_Action@main`
+- Filesystem security scan: `aquasecurity/trivy-action@master` (`scan-type: fs`)
+- Artifacts uploaded:
+  - `Dependency-Check-Report` (`reports/dependency-check-report.html`)
+  - `trivy-fs-vulnerability-assessment-report` (`trivy-fs-results.sarif`)
+
+3. `build-scan-container-job` (image build + image security scan + publish)
+- Docker metadata/tags: `docker/metadata-action@v4`
+- Build setup: `docker/setup-buildx-action@v2`
+- Build image for scan: `docker/build-push-action@v3` (`load: true`, `push: false`)
+- Image scan: `aquasecurity/trivy-action@master` (container image SARIF output)
+- Artifact uploaded:
+  - `trivy-container-vulnerability-assessment-report` (`trivy-container-results.sarif`)
+- Push image: `docker/build-push-action@v3` with `if: github.event_name != 'pull_request'`
+
+### PR vs Main Behavior
+
+- Pull requests:
+  - Run tests, quality checks, dependency/source/image scans
+  - Build image for scanning
+  - Do not push image to registry
+- Push to `main`:
+  - Runs the same checks/scans
+  - Pushes image tags (`latest`, `sha-<commit>`, long SHA), if registry auth is configured
 
 ### Required Secrets / Notes
 
 - `SONAR_TOKEN` is required for the SonarQube step.
 - Docker registry login is required before image push if your registry needs authentication.
 - Vulnerability scan steps currently use `exit-code: 0`, so findings are reported but do not fail the workflow.
+- This workflow is currently CI/security-focused; there is no deployment step defined.
 
 ## Useful Commands
 

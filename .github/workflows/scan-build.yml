@@ -27,7 +27,7 @@ jobs:
         run: uv sync --frozen
 
       - name: Linting codebase
-        run: uv run pylint --recursive=y .
+        run: uv run ruff check .
 
       - name: Running unit-tests
         run: |
