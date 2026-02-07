@@ -9,8 +9,8 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
-  automated-test-job:
-    name: Running unit-tests and generating coverage reports for SonarQube
+  unit-test-job:
+    name: Running unit-tests and generating coverage reports
     environment: development
     runs-on: ubuntu-latest
     steps:
@@ -40,11 +40,6 @@ jobs:
            uv run coverage html -d coverage
            uv run coverage xml
 
-      - name: SonarQube Scan
-        uses: sonarsource/sonarqube-scan-action@v6
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
       - name: upload coverage report
         uses: actions/upload-artifact@v4
         if: always()
@@ -52,11 +47,33 @@ jobs:
           name: coverage
           path: ./coverage
 
+  sonarqube-job:
+    name: SonarQube Analysis
+    runs-on: ubuntu-latest
+    environment: development
+    needs: unit-test-job
+    steps:
+      - name: Checking out repository code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download coverage report
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage
+          path: coverage
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
   scan-vuln-job:
     name: Scanning for vulnerabilities and misconfigurations
     environment: development
     runs-on: ubuntu-latest
-    needs: automated-test-job
+    needs: unit-test-job
     steps:
       - run: echo "Job (${{ github.job }}) was automatically triggered by event ${{ github.event_name }}."
       - run: echo "${{ github.repository }}#${{ github.ref }} has been checked out to a GitHub runner on ${{ runner.os }} server"

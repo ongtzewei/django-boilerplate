@@ -14,3 +14,16 @@ dev = [
     "pre-commit>=4.5.1",
     "ruff>=0.15.0",
 ]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff.lint.per-file-ignores]
+# Allow unused imports in files
+"app/admin.py" = ["F401"]
+"app/models.py" = ["F401"]
+"app/tests.py" = ["F401"]
+"app/views.py" = ["F401"]
