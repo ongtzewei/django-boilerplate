@@ -5,6 +5,8 @@ services:
       context: .
       dockerfile: Dockerfile
     env_file:
-      - ./.env.docker
+      - .env
+    environment:
+      - DEBUG=${DEBUG}
     ports:
       - 8080:${PORT}

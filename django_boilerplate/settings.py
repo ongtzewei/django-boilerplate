@@ -1,10 +1,13 @@
-from decouple import config
 from pathlib import Path
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-DEBUG = 'False' != config('DEBUG')
-SECRET_KEY = config('SECRET_KEY')
+DEBUG = 'False' != os.getenv('DEBUG')
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 # Application definition
 
@@ -44,8 +47,8 @@ TEMPLATES = [
     },
 ]
 
-CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS').split(',')
-ALLOWED_HOSTS = config('ALLOWED_HOSTS').split(',')
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS').split(',')
 WSGI_APPLICATION = 'django_boilerplate.wsgi.application'
 ROOT_URLCONF = 'app.urls'
 
@@ -97,7 +100,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
-STATIC_URL = config('STATIC_URL')
-STATIC_ROOT = config('STATIC_ROOT')
-MEDIA_URL = config('MEDIA_URL')
-MEDIA_ROOT = config('MEDIA_ROOT')
+STATIC_URL = os.getenv('STATIC_URL')
+STATIC_ROOT = os.getenv('STATIC_ROOT')
+MEDIA_URL = os.getenv('MEDIA_URL')
+MEDIA_ROOT = os.getenv('MEDIA_ROOT')
